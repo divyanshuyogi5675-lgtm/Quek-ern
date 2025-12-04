@@ -1,9 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { User, LogOut, ChevronRight, Share2, MapPin, Globe, ShieldCheck, Copy, Wallet, UploadCloud, Download, LayoutDashboard, Camera, X, Timer, Gift, Trophy } from 'lucide-react';
+import { User, LogOut, ChevronRight, Share2, MapPin, Globe, ShieldCheck, Copy, Wallet, UploadCloud, Download, LayoutDashboard, Camera, X, Timer, Gift, Trophy, Sparkles, Zap } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { SpinWheelModal } from '../modals/GameModals';
+import { InviteModal } from '../modals/InviteModal';
 
 interface AccountViewProps {
   onRecharge?: () => void;
@@ -15,7 +16,7 @@ const DEFAULT_AVATAR = "https://i.supaimg.com/5e1ad129-fdd4-43a2-9dd3-e687b9304e
 const ADMIN_EMAIL = "divyanshuyogi265@gmail.com";
 
 export const AccountView: React.FC<AccountViewProps> = ({ onRecharge, onWithdraw, onAdminClick }) => {
-  const { user, logout, uploadProfilePicture, updateUserAddress, websiteUrl, claimRewardIncome } = useAuth();
+  const { user, logout, uploadProfilePicture, updateUserAddress, claimRewardIncome } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Modal States
@@ -67,36 +68,6 @@ export const AccountView: React.FC<AccountViewProps> = ({ onRecharge, onWithdraw
       } finally {
           setClaimLoading(false);
       }
-  };
-
-  const getInviteLink = () => {
-     let base = websiteUrl || window.location.origin;
-     
-     // Robust Fix: Ensure we only use the origin (https://site.com) and strip any paths (like /register)
-     // This prevents 404 errors on static hosting platforms like Netlify
-     try {
-         const urlObj = new URL(base);
-         base = urlObj.origin; 
-     } catch (e) {
-         // Fallback clean if URL parsing fails
-         base = base.replace(/\/$/, "").replace(/\/register\/?$/, "");
-     }
-     
-     // Use query parameter routing which is safe for static hosting
-     return `${base}/?view=register&ref=${user?.inviteCode || ''}`;
-  };
-
-  const handleCopyCode = () => {
-    if (user?.inviteCode) {
-        navigator.clipboard.writeText(user.inviteCode);
-        alert('Invite code copied!');
-    }
-  };
-  
-  const handleCopyLink = () => {
-      const link = getInviteLink();
-      navigator.clipboard.writeText(link);
-      alert('Referral link copied!');
   };
 
   const handleSaveAddress = async () => {
@@ -166,38 +137,105 @@ export const AccountView: React.FC<AccountViewProps> = ({ onRecharge, onWithdraw
           </div>
       </div>
 
-      {/* --- 👑 VIP DAILY INCOME CARD --- */}
-      {user?.rewardDailyRate && user.rewardDailyRate > 0 && (
-          <div className="bg-gradient-to-r from-purple-900 to-indigo-900 rounded-2xl p-5 mb-6 text-white shadow-xl shadow-purple-900/20 border border-purple-500/30 relative overflow-hidden animate-fade-in-up">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl -mr-10 -mt-10 animate-pulse"></div>
-              
-              <div className="flex justify-between items-center relative z-10">
-                  <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md border border-white/20">
-                          <Gift className="w-6 h-6 text-yellow-300 animate-bounce" />
-                      </div>
-                      <div>
-                          <p className="text-[10px] text-purple-200 font-bold uppercase tracking-wider mb-0.5">VIP Daily Income</p>
-                          <h3 className="text-2xl font-black">₹{user.rewardDailyRate} <span className="text-xs font-normal text-purple-300">/ day</span></h3>
-                      </div>
+      {/* --- SPIN & EARN CARD (NEW) --- */}
+      <div className="bg-[#1e1b4b] rounded-3xl p-6 mb-6 relative overflow-hidden shadow-xl shadow-indigo-900/30 border border-indigo-500/30">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-purple-600/20 rounded-full blur-3xl -mr-12 -mt-12"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-600/20 rounded-full blur-3xl -ml-10 -mb-10"></div>
+          
+          <div className="relative z-10">
+              <div className="flex justify-between items-start mb-4">
+                  <div>
+                      <h3 className="text-white text-xl font-black italic tracking-wide">LUCKY SPIN</h3>
+                      <p className="text-indigo-200 text-xs font-medium">Win Daily Income up to ₹100</p>
                   </div>
-
-                  <div className="text-right">
-                      <div className="flex items-center justify-end gap-1 text-[10px] font-mono text-purple-200 mb-2 bg-black/20 px-2 py-1 rounded-lg">
-                          <Timer className="w-3 h-3" />
-                          <span>{timeLeft}</span>
-                      </div>
-                      <Button 
-                        onClick={handleClaimReward} 
-                        disabled={timeLeft !== 'Ready to Claim' || claimLoading}
-                        className={`py-2 px-4 text-xs h-auto shadow-lg shadow-purple-900/40 ${timeLeft === 'Ready to Claim' ? 'bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-300' : 'bg-white/10 text-white cursor-not-allowed border-transparent'}`}
-                      >
-                          {claimLoading ? 'Processing...' : 'Claim Now'}
-                      </Button>
+                  <div className="bg-indigo-500/30 backdrop-blur-sm border border-indigo-400/30 rounded-lg px-3 py-1 text-center">
+                      <p className="text-[10px] text-indigo-200 uppercase font-bold">Spins Left</p>
+                      <p className="text-xl font-black text-white">{user?.spin_balance || 0}</p>
                   </div>
               </div>
+
+              <div className="flex gap-3 items-center">
+                   <div className="flex-1 bg-white/5 rounded-xl p-3 border border-white/10">
+                       <Gift className="w-6 h-6 text-yellow-400 mb-1" />
+                       <p className="text-white text-xs font-bold">Guaranteed</p>
+                       <p className="text-indigo-200 text-[10px]">Prizes</p>
+                   </div>
+                   <button 
+                      onClick={() => setShowSpin(true)}
+                      className="flex-[2] bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white py-4 rounded-xl font-black text-sm uppercase tracking-wider shadow-lg shadow-purple-900/40 active:scale-95 transition-all flex items-center justify-center gap-2 group"
+                    >
+                       <Sparkles className="w-4 h-4 text-yellow-200 animate-pulse" /> Play Now
+                   </button>
+              </div>
+
+              {/* HINDI INSTRUCTIONS */}
+              <div className="mt-5 pt-4 border-t border-white/10">
+                   <p className="text-indigo-300 text-[10px] font-bold uppercase tracking-widest mb-3">How it works (कैसे काम करता है):</p>
+                   <div className="space-y-2.5">
+                       <div className="flex items-start gap-3">
+                           <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px] font-bold text-indigo-300 mt-0.5 border border-indigo-500/30">1</div>
+                           <p className="text-xs text-gray-300">
+                               <span className="text-white font-bold">Invite Friends:</span> अपने दोस्तों को लिंक शेयर करें।
+                           </p>
+                       </div>
+                       <div className="flex items-start gap-3">
+                           <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px] font-bold text-indigo-300 mt-0.5 border border-indigo-500/30">2</div>
+                           <p className="text-xs text-gray-300">
+                               <span className="text-white font-bold">1st Recharge = 1 Spin:</span> जब दोस्त पहला रिचार्ज करेगा, आपको Spin मिलेगा।
+                           </p>
+                       </div>
+                       <div className="flex items-start gap-3">
+                           <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px] font-bold text-indigo-300 mt-0.5 border border-indigo-500/30">3</div>
+                           <p className="text-xs text-gray-300">
+                               <span className="text-white font-bold">Win Daily Income:</span> Spin में जीती राशि (e.g. ₹50) आपको <span className="text-yellow-400 font-bold">11 दिनों तक रोज</span> मिलेगी।
+                           </p>
+                       </div>
+                   </div>
+              </div>
           </div>
-      )}
+      </div>
+
+      {/* --- 👑 VIP DAILY INCOME CARD --- */}
+      <div className="bg-gradient-to-r from-gray-900 to-slate-800 rounded-2xl p-5 mb-6 text-white shadow-xl border border-slate-700/50 relative overflow-hidden animate-fade-in-up">
+          <div className="flex justify-between items-center relative z-10">
+              <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center backdrop-blur-md border border-emerald-500/30">
+                      <Zap className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div>
+                      <p className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider mb-0.5">Your Daily Income</p>
+                      {user?.rewardDailyRate && user.rewardDailyRate > 0 ? (
+                         <h3 className="text-2xl font-black">₹{user.rewardDailyRate} <span className="text-xs font-normal text-slate-400">/ day</span></h3>
+                      ) : (
+                         <h3 className="text-xl font-bold text-gray-400">Not Active</h3>
+                      )}
+                  </div>
+              </div>
+
+              <div className="text-right">
+                  {user?.rewardDailyRate && user.rewardDailyRate > 0 ? (
+                      <>
+                        <div className="flex items-center justify-end gap-1 text-[10px] font-mono text-slate-300 mb-2 bg-black/30 px-2 py-1 rounded-lg">
+                            <Timer className="w-3 h-3" />
+                            <span>{timeLeft}</span>
+                        </div>
+                        <Button 
+                            onClick={handleClaimReward} 
+                            disabled={timeLeft !== 'Ready to Claim' || claimLoading}
+                            className={`py-2 px-4 text-xs h-auto shadow-lg ${timeLeft === 'Ready to Claim' ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed border-transparent'}`}
+                        >
+                            {claimLoading ? 'Processing...' : 'Claim Now'}
+                        </Button>
+                      </>
+                  ) : (
+                      <div className="bg-white/5 px-3 py-2 rounded-lg text-center">
+                          <p className="text-[10px] text-gray-400">Start inviting to earn</p>
+                          <p className="text-xs font-bold text-emerald-400">Spin & Win</p>
+                      </div>
+                  )}
+              </div>
+          </div>
+      </div>
 
       {/* Menu Options */}
       <div className="space-y-3">
@@ -215,7 +253,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ onRecharge, onWithdraw
 
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
               <MenuItem icon={MapPin} label="My Address" onClick={() => setShowAddress(true)} />
-              <MenuItem icon={Share2} label="Invite Friends" onClick={() => setShowInvite(true)} subLabel="Win ₹50" />
+              <MenuItem icon={Share2} label="Invite Friends" onClick={() => setShowInvite(true)} subLabel="Win Spin" />
               <MenuItem icon={Globe} label="Language" subLabel="English" onClick={() => {}} /> 
               <MenuItem icon={ShieldCheck} label="Privacy Policy" onClick={() => {}} />
           </div>
@@ -227,7 +265,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ onRecharge, onWithdraw
 
       {/* Version Info */}
       <div className="text-center mt-8 text-gray-400 text-xs">
-          <p>App Version 2.4.2</p>
+          <p>App Version 2.5.0</p>
           <p>Secure Connection</p>
       </div>
 
@@ -248,75 +286,8 @@ export const AccountView: React.FC<AccountViewProps> = ({ onRecharge, onWithdraw
           </div>
       )}
 
-      {/* Invite Modal (HINDI & Spin Model) */}
-      {showInvite && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in-up">
-              <div className="bg-white rounded-3xl w-full max-w-sm p-0 overflow-hidden relative shadow-2xl">
-                  {/* Header Section */}
-                  <div className="bg-[#5e35b1] p-6 text-center relative">
-                       <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
-                           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-xl"></div>
-                           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-10 -mb-10 blur-xl"></div>
-                       </div>
-                       <button onClick={() => setShowInvite(false)} className="absolute top-4 right-4 text-white/70 hover:text-white z-20"><X className="w-6 h-6"/></button>
-                       
-                       <div className="relative z-10 flex flex-col items-center">
-                            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-3 border border-white/30 backdrop-blur-sm shadow-lg">
-                                <Share2 className="w-8 h-8 text-white" />
-                            </div>
-                            <h3 className="text-2xl font-black text-white leading-tight">दोस्तों को Invite करें <br/>और ₹50 तक जीतें!</h3>
-                       </div>
-                  </div>
-                  
-                  <div className="p-6">
-                      
-                      {/* Spin Button Card */}
-                      <div className="bg-gradient-to-r from-purple-100 to-pink-50 p-4 rounded-2xl mb-6 border border-purple-100 shadow-inner flex items-center justify-between">
-                         <div>
-                             <p className="text-xs font-bold text-purple-700 uppercase">Available Spins</p>
-                             <p className="text-2xl font-black text-purple-900">{user?.spin_balance || 0}</p>
-                         </div>
-                         <Button onClick={() => setShowSpin(true)} className="bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-300">
-                             <Trophy className="w-4 h-4 mr-1"/> Play Lucky Spin
-                         </Button>
-                      </div>
-
-                      {/* Steps Visualization */}
-                      <div className="space-y-4 mb-6">
-                          <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center font-bold text-purple-600 text-sm">1</div>
-                              <p className="text-sm font-medium text-gray-700">अपना लिंक दोस्तों को शेयर करें।</p>
-                          </div>
-                          <div className="h-4 border-l-2 border-dashed border-gray-200 ml-4"></div>
-                          <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 text-sm">2</div>
-                              <p className="text-sm font-medium text-gray-700">दोस्त रजिस्टर करके अपना <b className="text-blue-600">पहला रिचार्ज</b> करेगा।</p>
-                          </div>
-                          <div className="h-4 border-l-2 border-dashed border-gray-200 ml-4"></div>
-                          <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center font-bold text-green-600 text-sm">3</div>
-                              <p className="text-sm font-medium text-gray-700">आपको <b className="text-green-600">Lucky Spin</b> मिलेगा जिसमे आप <b className="text-green-600">₹50</b> तक जीत सकते हैं!</p>
-                          </div>
-                      </div>
-
-                      {/* Referral Code Box */}
-                      <div className="bg-gray-50 rounded-xl p-3 mb-4 border border-dashed border-gray-300 flex justify-between items-center">
-                          <div>
-                            <p className="text-[10px] text-gray-500 uppercase font-bold">Your Referral Code</p>
-                            <span className="text-xl font-mono font-bold text-gray-800 tracking-wider">{user?.inviteCode}</span>
-                          </div>
-                          <button onClick={handleCopyCode} className="p-2 hover:bg-gray-200 rounded-lg text-emerald-600 transition-colors"><Copy className="w-5 h-5"/></button>
-                      </div>
-
-                      <div className="space-y-3">
-                          <Button onClick={handleCopyLink} fullWidth className="bg-[#5e35b1] hover:bg-[#4527a0] text-lg font-bold shadow-lg shadow-purple-200">लिंक कॉपी करें</Button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* SPIN MODAL COMPONENT */}
+      {/* MODALS */}
+      <InviteModal isOpen={showInvite} onClose={() => setShowInvite(false)} />
       <SpinWheelModal isOpen={showSpin} onClose={() => setShowSpin(false)} />
 
     </div>

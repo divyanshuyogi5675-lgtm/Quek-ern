@@ -18,7 +18,16 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+// Safe Analytics Initialization
+let analytics = null;
+if (typeof window !== 'undefined') {
+  try {
+    analytics = getAnalytics(app);
+  } catch (e) {
+    console.warn("Firebase Analytics failed to initialize. This is likely due to browser privacy settings or ad blockers.", e);
+  }
+}
 
 // Export Authentication and Database services
 export const auth = getAuth(app);

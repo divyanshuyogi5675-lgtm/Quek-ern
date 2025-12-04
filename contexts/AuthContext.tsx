@@ -10,7 +10,7 @@ import {
   sendPasswordResetEmail,
   User as FirebaseUser
 } from 'firebase/auth';
-import { ref, set, get, child, update, push, onValue, Unsubscribe, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, set, get, child, update, push, onValue, Unsubscribe } from 'firebase/database';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, googleProvider, db, storage } from '../services/firebase';
 import { User, AuthContextType, Product, Investment, Transaction, WithdrawalDetails, SupportSettings } from '../types';
@@ -63,8 +63,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (snapshot.val()) {
             setWebsiteUrl(snapshot.val().replace(/\/$/, "")); 
         } else {
-            // Fallback to current origin if DB is empty, or keep default
-            if (window.location.hostname.includes("netlify.app")) {
+            if (typeof window !== 'undefined' && window.location.hostname.includes("netlify.app")) {
                setWebsiteUrl("https://pesejito.netlify.app");
             }
         }
@@ -74,45 +73,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const processInvestments = async (userData: User) => {
-      const updates: any = {};
-      const now = Date.now();
-      const todayMidnight = new Date();
-      todayMidnight.setHours(0, 0, 0, 0);
-      
-      let newBalance = userData.balance;
-      let newTotalEarning = userData.totalEarning;
-      let newTodayEarning = 0; 
-      
-      const shouldCredit = !userData.lastIncomeUpdate || userData.lastIncomeUpdate < todayMidnight.getTime();
-      
-      if (!userData.investments) return;
+      try {
+        const updates: any = {};
+        const now = Date.now();
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        
+        let newBalance = userData.balance;
+        let newTotalEarning = userData.totalEarning;
+        let newTodayEarning = 0; 
+        
+        const shouldCredit = !userData.lastIncomeUpdate || userData.lastIncomeUpdate < todayMidnight.getTime();
+        
+        if (!userData.investments) return;
 
-      Object.entries(userData.investments).forEach(([invId, inv]) => {
-          if (inv.status !== 'active') return;
+        Object.entries(userData.investments).forEach(([invId, inv]) => {
+            if (inv.status !== 'active') return;
 
-          if (now > inv.endDate) {
-              updates[`users/${userData.id}/investments/${invId}/status`] = 'completed';
-              return; 
-          }
+            if (now > inv.endDate) {
+                updates[`users/${userData.id}/investments/${invId}/status`] = 'completed';
+                return; 
+            }
 
-          if (shouldCredit) {
-              newBalance += inv.dailyIncome;
-              newTotalEarning += inv.dailyIncome;
-              newTodayEarning += inv.dailyIncome;
-          }
-      });
+            if (shouldCredit) {
+                newBalance += inv.dailyIncome;
+                newTotalEarning += inv.dailyIncome;
+                newTodayEarning += inv.dailyIncome;
+            }
+        });
 
-      if (shouldCredit && newTodayEarning > 0) {
-          updates[`users/${userData.id}/balance`] = newBalance;
-          updates[`users/${userData.id}/totalEarning`] = newTotalEarning;
-          updates[`users/${userData.id}/todayEarning`] = newTodayEarning; 
-          updates[`users/${userData.id}/lastIncomeUpdate`] = now;
-          
-          await update(ref(db), updates);
-      } else if (shouldCredit) {
-           updates[`users/${userData.id}/lastIncomeUpdate`] = now;
-           updates[`users/${userData.id}/todayEarning`] = 0; 
-           await update(ref(db), updates);
+        if (shouldCredit && newTodayEarning > 0) {
+            updates[`users/${userData.id}/balance`] = newBalance;
+            updates[`users/${userData.id}/totalEarning`] = newTotalEarning;
+            updates[`users/${userData.id}/todayEarning`] = newTodayEarning; 
+            updates[`users/${userData.id}/lastIncomeUpdate`] = now;
+            
+            await update(ref(db), updates);
+        } else if (shouldCredit) {
+             updates[`users/${userData.id}/lastIncomeUpdate`] = now;
+             updates[`users/${userData.id}/todayEarning`] = 0; 
+             await update(ref(db), updates);
+        }
+      } catch (e) {
+        console.error("Investment processing error:", e);
       }
   };
 
@@ -124,41 +127,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const userRef = ref(db, `users/${firebaseUser.uid}`);
         
         userUnsubscribe = onValue(userRef, async (snapshot) => {
-          const dbUser = snapshot.val() || {};
-          
-          let currentInviteCode = dbUser.inviteCode;
-          if (!currentInviteCode) {
-              currentInviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-              update(ref(db, `users/${firebaseUser.uid}`), { inviteCode: currentInviteCode });
-          }
-
-          const appUser: User = {
-            id: firebaseUser.uid,
-            name: dbUser.username || firebaseUser.displayName || 'User',
-            email: firebaseUser.email,
-            phoneNumber: dbUser.phoneNumber || firebaseUser.phoneNumber || null,
-            avatar: dbUser.avatar || firebaseUser.photoURL,
-            inviteCode: currentInviteCode,
-            address: dbUser.address || null,
-            lastDailyBonus: dbUser.lastDailyBonus || 0,
-            lastIncomeUpdate: dbUser.lastIncomeUpdate || 0,
-            balance: Number(dbUser.balance) || 0,
-            spin_balance: Number(dbUser.spin_balance) || 0,
+          try {
+            const dbUser = snapshot.val() || {};
             
-            // Stacking Reward Fields
-            rewardDailyRate: Number(dbUser.rewardDailyRate) || 0,
-            rewardEndDate: Number(dbUser.rewardEndDate) || 0,
-            lastRewardClaim: Number(dbUser.lastRewardClaim) || 0,
+            let currentInviteCode = dbUser.inviteCode;
+            // Fallback if google login didn't create code
+            if (!currentInviteCode) {
+                currentInviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+                await update(ref(db, `users/${firebaseUser.uid}`), { inviteCode: currentInviteCode }).catch(console.error);
+            }
 
-            totalEarning: Number(dbUser.totalEarning) || 0,
-            todayEarning: Number(dbUser.todayEarning) || 0,
-            investments: dbUser.investments || {},
-            transactions: dbUser.transactions || {}
-          };
-          
-          setUser(appUser);
-          setIsLoading(false);
-          processInvestments(appUser);
+            const appUser: User = {
+              id: firebaseUser.uid,
+              name: dbUser.username || firebaseUser.displayName || 'User',
+              email: firebaseUser.email,
+              phoneNumber: dbUser.phoneNumber || firebaseUser.phoneNumber || null,
+              avatar: dbUser.avatar || firebaseUser.photoURL,
+              inviteCode: currentInviteCode,
+              referrerId: dbUser.referrerId || null,
+              address: dbUser.address || null,
+              lastDailyBonus: dbUser.lastDailyBonus || 0,
+              lastIncomeUpdate: dbUser.lastIncomeUpdate || 0,
+              balance: Number(dbUser.balance) || 0,
+              spin_balance: Number(dbUser.spin_balance) || 0,
+              hasDeposited: dbUser.hasDeposited || false,
+              
+              // Stacking Reward Fields
+              rewardDailyRate: Number(dbUser.rewardDailyRate) || 0,
+              rewardEndDate: Number(dbUser.rewardEndDate) || 0,
+              lastRewardClaim: Number(dbUser.lastRewardClaim) || 0,
+
+              totalEarning: Number(dbUser.totalEarning) || 0,
+              todayEarning: Number(dbUser.todayEarning) || 0,
+              investments: dbUser.investments || {},
+              transactions: dbUser.transactions || {}
+            };
+            
+            setUser(appUser);
+            setIsLoading(false);
+            processInvestments(appUser);
+          } catch (err) {
+            console.error("Error processing user data snapshot:", err);
+            setIsLoading(false);
+          }
 
         }, (error) => {
           console.error("User Sync Error:", error);
@@ -207,14 +218,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 balance: Number(uData.balance) || 0,
                 spin_balance: Number(uData.spin_balance) || 0,
                 inviteCode: uData.inviteCode || 'N/A',
+                referrerId: uData.referrerId,
                 totalEarning: Number(uData.totalEarning) || 0,
                 todayEarning: Number(uData.todayEarning) || 0,
                 investments: uData.investments, 
                 lastIncomeUpdate: uData.lastIncomeUpdate,
-                transactions: uData.transactions || {}
+                transactions: uData.transactions || {},
+                rewardDailyRate: Number(uData.rewardDailyRate) || 0,
+                rewardEndDate: Number(uData.rewardEndDate) || 0,
+                lastRewardClaim: Number(uData.lastRewardClaim) || 0,
             };
             
-            processInvestments(tempUser);
             allUsers.push(tempUser);
 
             if (uData.transactions) {
@@ -232,8 +246,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
 
         setAdminUsers(allUsers);
-        setAdminRechargeRequests(allRecharges.sort((a,b) => b.date - a.date));
-        setAdminWithdrawRequests(allWithdraws.sort((a,b) => b.date - a.date));
+        setAdminRechargeRequests(allRecharges.sort((a,b) => (b.date || 0) - (a.date || 0)));
+        setAdminWithdrawRequests(allWithdraws.sort((a,b) => (b.date || 0) - (a.date || 0)));
 
     } catch (e) {
         console.error("Admin Refresh Failed:", e);
@@ -268,15 +282,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (inviteCode) {
          try {
             const usersRef = ref(db, 'users');
-            const q = query(usersRef, orderByChild('inviteCode'), equalTo(inviteCode));
-            const snapshot = await get(q);
-
+            const snapshot = await get(usersRef);
             if (snapshot.exists()) {
-                const referrerId = Object.keys(snapshot.val())[0];
-                newUserData.referrerId = referrerId;
+                const allUsers = snapshot.val();
+                const referrerId = Object.keys(allUsers).find(uid => 
+                    allUsers[uid]?.inviteCode === inviteCode
+                );
+                if (referrerId) {
+                    newUserData.referrerId = referrerId;
+                }
             }
          } catch (e) {
-             console.error("Error finding referrer", e);
+             console.error("Referral lookup failed:", e);
          }
       }
 
@@ -288,14 +305,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const loginWithGoogle = async (): Promise<void> => {
-    const result = await signInWithPopup(auth, googleProvider);
-    if (result.user) {
-         const userRef = ref(db, `users/${result.user.uid}`);
-         get(userRef).then((snapshot) => {
-            if (!snapshot.exists()) {
+  const loginWithGoogle = async (inviteCode?: string): Promise<void> => {
+    try {
+        const result = await signInWithPopup(auth, googleProvider);
+        if (result.user) {
+             const userRef = ref(db, `users/${result.user.uid}`);
+             const snapshot = await get(userRef);
+             
+             // ONLY if user data doesn't exist, create it.
+             if (!snapshot.exists()) {
                  const newInviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-                 update(ref(db, 'users/' + result.user.uid), {
+                 
+                 const newUserData: any = {
                     username: result.user.displayName,
                     email: result.user.email,
                     last_login: Date.now(),
@@ -303,10 +324,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     inviteCode: newInviteCode,
                     balance: 0,
                     spin_balance: 0,
+                    rewardDailyRate: 0,
+                    totalEarning: 0,
+                    todayEarning: 0,
                     hasDeposited: false
-                });
+                };
+
+                // Handle Referrer for Google Login
+                if (inviteCode) {
+                     try {
+                        const usersRef = ref(db, 'users');
+                        const snap = await get(usersRef);
+                        if (snap.exists()) {
+                            const allUsers = snap.val();
+                            const referrerId = Object.keys(allUsers).find(uid => 
+                                allUsers[uid]?.inviteCode === inviteCode
+                            );
+                            if (referrerId) {
+                                newUserData.referrerId = referrerId;
+                            }
+                        }
+                     } catch (e) {
+                         console.error("Google Referral lookup failed:", e);
+                     }
+                }
+
+                await set(userRef, newUserData);
             }
-         });
+        }
+    } catch (e) {
+        console.error("Google login error:", e);
+        throw e; 
     }
   };
 
@@ -342,7 +390,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         );
 
         if (hasActivePlan) {
-            throw new Error("Limit Reached: You can only have one active plan for this Starter tier. Please wait for it to complete.");
+            throw new Error("Limit Reached: You can only have one active plan for this Starter tier.");
         }
     }
 
@@ -399,6 +447,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (amount < 500) throw new Error("Minimum withdrawal is ₹500");
     if (user.balance < amount) throw new Error("Insufficient balance");
 
+    // DEDUCT MONEY IMMEDIATELY ON REQUEST
     const newBalance = user.balance - amount;
     const transactionId = push(ref(db, `users/${user.id}/transactions`)).key;
     if (!transactionId) throw new Error("Failed to generate ID");
@@ -437,40 +486,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return true;
   };
 
-  // --- PREMIUM SPIN SYSTEM ---
   const spinWheel = async (): Promise<number> => {
       if (!user) throw new Error("Not logged in");
       if (user.spin_balance <= 0) throw new Error("No spins available");
       
-      // Strict Probability Algorithm
-      // 0 (Better Luck) -> 80%
-      // 10 -> 12%
-      // 30 -> 5%
-      // 50 -> 2%
-      // 100 -> 1%
-      
       const rand = Math.random() * 100;
-      let winningAmount = 0;
+      let winningAmount = 10;
       
-      if (rand < 80) winningAmount = 0;
-      else if (rand < 92) winningAmount = 10;
-      else if (rand < 97) winningAmount = 30;
-      else if (rand < 99) winningAmount = 50;
-      else winningAmount = 100;
+      if (rand >= 99) winningAmount = 100;
+      else if (rand >= 95) winningAmount = 70;
+      else if (rand >= 85) winningAmount = 50;
+      else if (rand >= 60) winningAmount = 30;
+      else winningAmount = 10;
       
       const updates: any = {};
-      // Deduct Spin
       updates[`users/${user.id}/spin_balance`] = user.spin_balance - 1;
 
-      // Logic: If user wins, DO NOT add to balance. Add to 'rewardDailyRate' and reset timer to 11 days.
-      if (winningAmount > 0) {
-          const currentRate = user.rewardDailyRate || 0;
-          const newRate = currentRate + winningAmount;
-          const duration = 11 * 24 * 60 * 60 * 1000; // 11 Days in MS
+      const currentRate = user.rewardDailyRate || 0;
+      const newRate = currentRate + winningAmount;
+      const duration = 11 * 24 * 60 * 60 * 1000; 
 
-          updates[`users/${user.id}/rewardDailyRate`] = newRate;
-          updates[`users/${user.id}/rewardEndDate`] = Date.now() + duration; // Stacking resets timer
-      }
+      updates[`users/${user.id}/rewardDailyRate`] = newRate;
+      updates[`users/${user.id}/rewardEndDate`] = Date.now() + duration; 
       
       await update(ref(db), updates);
       return winningAmount;
@@ -483,22 +520,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const endDate = user.rewardEndDate || 0;
       const lastClaim = user.lastRewardClaim || 0;
 
-      if (dailyRate <= 0) return "No active rewards.";
-      if (Date.now() > endDate) return "Reward plan has expired.";
+      if (dailyRate <= 0) return "No active rewards. Spin wheel to get rewards.";
+      if (Date.now() > endDate) return "Reward plan has expired. Invite more friends to spin again.";
       
-      // Check 24 hour cooldown
       const COOLDOWN = 24 * 60 * 60 * 1000;
       if (Date.now() - lastClaim < COOLDOWN) {
           const remaining = Math.ceil((COOLDOWN - (Date.now() - lastClaim)) / (60*60*1000));
           return `Please wait ${remaining} hours for next claim.`;
       }
 
-      // Process Claim
       const updates: any = {};
       updates[`users/${user.id}/balance`] = user.balance + dailyRate;
       updates[`users/${user.id}/lastRewardClaim`] = Date.now();
       
-      // Log Transaction
       const txId = push(ref(db, `users/${user.id}/transactions`)).key;
       if (txId) {
           updates[`users/${user.id}/transactions/${txId}`] = {
@@ -538,7 +572,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const approveTransaction = async (txId: string, userId: string, type: 'recharge' | 'withdraw', amount: number): Promise<void> => {
       if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) throw new Error("Unauthorized");
+      
       const numericAmount = Number(amount);
+      if (isNaN(numericAmount) || numericAmount <= 0) {
+          console.error("Invalid amount");
+          return;
+      }
       
       if (type === 'recharge') {
           setAdminRechargeRequests(prev => prev.map(tx => tx.id === txId ? { ...tx, status: 'approved' } : tx));
@@ -556,10 +595,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
              
              if (userSnap.exists()) {
                  const uData = userSnap.val();
-                 const currentBal = Number(uData.balance) || 0;
+                 const currentBal = Number(uData.balance) || 0; 
                  updates[`users/${userId}/balance`] = currentBal + numericAmount;
 
-                 // --- REFERRAL LOGIC: GIVE SPIN INSTEAD OF CASH ---
                  if (!uData.hasDeposited && uData.referrerId) {
                      const referrerRef = ref(db, `users/${uData.referrerId}`);
                      const refSnap = await get(referrerRef);
@@ -567,16 +605,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                      if (refSnap.exists()) {
                          const refData = refSnap.val();
                          const currentSpins = Number(refData.spin_balance) || 0;
-                         
-                         // Increment Spin Balance
                          updates[`users/${uData.referrerId}/spin_balance`] = currentSpins + 1;
                      }
                  }
-
+                 
                  updates[`users/${userId}/hasDeposited`] = true;
              }
           }
-
+          
           await update(ref(db), updates);
       } catch (e) {
           console.error("Sync failed:", e);
@@ -597,14 +633,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           updates[`users/${userId}/transactions/${txId}/status`] = 'rejected';
 
           if (type === 'withdraw') {
-            const amountRef = child(ref(db), `users/${userId}/transactions/${txId}/amount`);
-            const snapshot = await get(amountRef);
-            const amountToRefund = Number(snapshot.val()) || 0;
-            
-            const balanceRef = ref(db, `users/${userId}/balance`);
-            const balanceSnap = await get(balanceRef);
-            const currentBalance = Number(balanceSnap.val()) || 0;
-            updates[`users/${userId}/balance`] = currentBalance + amountToRefund;
+             const txRef = ref(db, `users/${userId}/transactions/${txId}`);
+             const txSnap = await get(txRef);
+             
+             if (txSnap.exists()) {
+                 const txData = txSnap.val();
+                 const refundAmount = Number(txData.amount);
+                 
+                 if (refundAmount > 0) {
+                     const userBalanceRef = ref(db, `users/${userId}/balance`);
+                     const balSnap = await get(userBalanceRef);
+                     const currentBal = Number(balSnap.val()) || 0;
+                     updates[`users/${userId}/balance`] = currentBal + refundAmount;
+                 }
+             }
           }
 
           await update(ref(db), updates);

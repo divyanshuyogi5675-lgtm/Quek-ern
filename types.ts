@@ -1,4 +1,3 @@
-
 export interface Investment {
   id: string;
   productId: string;
@@ -38,21 +37,23 @@ export interface User {
   phoneNumber?: string | null;
   avatar?: string | null;
   inviteCode?: string | null;
+  referrerId?: string | null; // ID of the person who invited this user
   address?: string | null; 
   lastDailyBonus?: number; 
   lastIncomeUpdate?: number; 
   balance: number;
-  spin_balance: number;
   
-  // New: Daily Reward Stacking System
-  rewardDailyRate?: number; // Accumulated Daily Income from Spins
-  rewardEndDate?: number;   // When the 11-day cycle ends
-  lastRewardClaim?: number; // Timestamp of last claim
+  // Spin & Reward System
+  spin_balance: number;   // Number of spins available
+  rewardDailyRate: number; // Amount user can claim daily
+  rewardEndDate: number;   // Timestamp when the 11-day cycle ends
+  lastRewardClaim: number; // Timestamp of last claim
   
   totalEarning: number;
   todayEarning: number;
   investments?: Record<string, Investment>;
   transactions?: Record<string, Transaction>;
+  hasDeposited?: boolean; // Track if first recharge is done
 }
 
 export interface Product {
@@ -82,7 +83,7 @@ export interface AuthContextType {
   login: (email: string, pass: string) => Promise<void>;
   register: (name: string, email: string, pass: string, phone: string, inviteCode?: string) => Promise<void>;
   logout: () => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: (inviteCode?: string) => Promise<void>;
   uploadProfilePicture: (file: File) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   buyProduct: (product: Product) => Promise<void>;
@@ -95,8 +96,8 @@ export interface AuthContextType {
   // Feature Functions
   claimDailyBonus: () => Promise<boolean>; 
   updateUserAddress: (address: string) => Promise<void>;
-  spinWheel: () => Promise<number>; // Returns the winning amount (Daily Rate increase)
-  claimRewardIncome: () => Promise<string>; // New: Claim accumulated daily reward
+  spinWheel: () => Promise<number>; // Returns the winning amount
+  claimRewardIncome: () => Promise<string>; // Claim accumulated daily reward
 
   // New Admin Functions
   approveTransaction: (txId: string, userId: string, type: 'recharge' | 'withdraw', amount: number) => Promise<void>;
@@ -111,4 +112,15 @@ export enum AuthView {
   LOGIN = 'LOGIN',
   REGISTER = 'REGISTER',
   FORGOT_PASSWORD = 'FORGOT_PASSWORD'
+}
+
+// Global declaration for Turnstile
+declare global {
+    interface Window {
+        turnstile?: {
+            render: (element: HTMLElement, options: any) => string;
+            reset: (widgetId: string) => void;
+            remove: (widgetId: string) => void;
+        };
+    }
 }

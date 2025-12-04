@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Mail, Lock, User as UserIcon, Phone, Ticket } from 'lucide-react';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
@@ -28,11 +28,49 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onViewChange }) => {
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetId = useRef<string | null>(null);
+
+  // Turnstile Rendering for Production
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+        if (window.turnstile && turnstileRef.current && !widgetId.current) {
+            try {
+                widgetId.current = window.turnstile.render(turnstileRef.current, {
+                    sitekey: '0x4AAAAAACExbvDVlqq5k643',
+                    callback: (token: string) => setCaptchaToken(token),
+                    'expired-callback': () => setCaptchaToken(null),
+                });
+                clearInterval(intervalId);
+            } catch (e) {
+                console.error("Turnstile render error", e);
+            }
+        }
+    }, 100);
+
+    return () => {
+        clearInterval(intervalId);
+        if (window.turnstile && widgetId.current) {
+            try {
+                window.turnstile.remove(widgetId.current);
+            } catch(e) {}
+            widgetId.current = null;
+        }
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+
+    if (!captchaToken) {
+        setError("Please verify you are human.");
+        setIsLoading(false);
+        return;
+    }
 
     // Password Validation
     if (password.length < 8) {
@@ -56,6 +94,13 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onViewChange }) => {
       await register(name, email, password, phone, inviteCode);
     } catch (err: any) {
       setError(getFriendlyErrorMessage(err));
+      // Reset CAPTCHA on error
+      if (window.turnstile && widgetId.current) {
+          try {
+             window.turnstile.reset(widgetId.current);
+          } catch(e) {}
+          setCaptchaToken(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +110,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onViewChange }) => {
     setIsLoading(true);
     setError(null);
     try {
-      await loginWithGoogle();
+      // Pass invite code to Google Login so referral is tracked
+      await loginWithGoogle(inviteCode);
     } catch (err: any) {
       setError(getFriendlyErrorMessage(err));
     } finally {
@@ -125,6 +171,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onViewChange }) => {
           icon={<Ticket className="w-5 h-5" />}
         />
 
+        {/* Cloudflare Turnstile Widget */}
+        <div className="flex justify-center my-4 min-h-[65px]">
+             <div ref={turnstileRef}></div>
+        </div>
+
         <div className="text-xs text-gray-500 mt-2">
             By creating an account, you agree to our <span className="text-emerald-600 cursor-pointer hover:underline">Terms of Service</span> and <span className="text-emerald-600 cursor-pointer hover:underline">Privacy Policy</span>.
         </div>
@@ -136,7 +187,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onViewChange }) => {
             </div>
         )}
 
-        <Button type="submit" fullWidth isLoading={isLoading} className="mt-2">
+        <Button type="submit" fullWidth isLoading={isLoading} className="mt-2" disabled={!captchaToken}>
           Create Account
         </Button>
       </form>

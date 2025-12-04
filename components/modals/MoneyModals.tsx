@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { X, ArrowRight, Copy, Download, Clock, AlertTriangle, ScanLine, CheckCircle2, Smartphone, ShieldCheck, Building2, User, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -86,10 +85,16 @@ export const MoneyModal: React.FC<MoneyModalProps> = ({ isOpen, onClose, onSubmi
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(upiId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    if (navigator.clipboard) {
+        try {
+            await navigator.clipboard.writeText(upiId);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (e) {
+            console.error("Failed to copy:", e);
+        }
+    }
   };
 
   // Reset Budget Limit Function (Simulated as requested)
@@ -125,8 +130,11 @@ export const MoneyModal: React.FC<MoneyModalProps> = ({ isOpen, onClose, onSubmi
          
          await new Promise(resolve => setTimeout(resolve, 3000)); // Sim delay to prevent infinite loading state
          
-         // Use Promise.race to prevent infinite loading if DB hangs
          const dbOp = onSubmit(val, utr);
+         
+         // CRITICAL FIX: Handle late rejections to prevent "Uncaught (in promise)" if race finishes first
+         dbOp.catch(err => console.warn("Recharge op finished with error after timeout:", err));
+
          const timeout = new Promise((resolve) => setTimeout(() => resolve(true), 5000)); 
          
          // We basically proceed to success screen regardless after 3-5 seconds

@@ -5,7 +5,7 @@ import { PRODUCTS } from '../../data/products';
 import { Button } from '../ui/Button';
 import { TrendingUp, Download, UploadCloud, Crown, Bell, Volume2, AlertOctagon, Lock, Trophy } from 'lucide-react';
 import { Product, Investment } from '../../types';
-import { DailyBonusModal, TeamModal } from '../modals/GameModals';
+import { DailyBonusModal, TeamModal, SpinWheelModal } from '../modals/GameModals';
 import { ProductModal } from '../modals/ProductModal';
 
 interface HomeViewProps {
@@ -19,6 +19,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onRecharge, onWithdraw }) =>
   // Game Modals State
   const [showBonus, setShowBonus] = useState(false);
   const [showTeam, setShowTeam] = useState(false);
+  const [showSpin, setShowSpin] = useState(false);
   
   // Invest Modal State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -154,18 +155,19 @@ export const HomeView: React.FC<HomeViewProps> = ({ onRecharge, onWithdraw }) =>
         </div>
       </div>
 
-      {/* 3. Quick Actions Grid - Updated Icons */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* 3. Quick Actions Grid - UPDATED WITH SPIN BUTTON */}
+      <div className="grid grid-cols-4 gap-3">
           {[
+              { label: 'Lucky Spin', img: 'https://cdn-icons-png.flaticon.com/512/3658/3658959.png', action: () => setShowSpin(true), highlight: true },
               { label: 'Bonus', img: 'https://i.supaimg.com/8d59dc3d-98f0-4a17-b2d6-11b2af73293c.png', action: () => setShowBonus(true) },
               { label: 'My Team', img: 'https://i.supaimg.com/433481a9-67f6-4067-8d0f-6888e2e3c8a6.png', action: () => setShowTeam(true) },
               { label: 'Telegram', img: 'https://i.supaimg.com/3ead3f9d-3681-4c76-928d-62a0f4fb01c7.png', action: openTelegram }
           ].map((item, idx) => (
-             <button key={idx} onClick={item.action} className="flex flex-col items-center gap-2 p-3 bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-gray-100 active:scale-95 transition-all hover:shadow-md hover:-translate-y-1">
-                <div className="w-12 h-12 flex items-center justify-center relative">
-                    <img src={item.img} alt={item.label} className="w-full h-full object-contain" />
+             <button key={idx} onClick={item.action} className={`flex flex-col items-center gap-2 p-2 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border active:scale-95 transition-all hover:shadow-md hover:-translate-y-1 ${item.highlight ? 'bg-gradient-to-b from-purple-50 to-white border-purple-200' : 'bg-white border-gray-100'}`}>
+                <div className="w-10 h-10 flex items-center justify-center relative">
+                    <img src={item.img} alt={item.label} className="w-full h-full object-contain drop-shadow-sm" />
                 </div>
-                <span className="text-[10px] font-bold text-gray-600 whitespace-nowrap tracking-tight">{item.label}</span>
+                <span className={`text-[10px] font-bold whitespace-nowrap tracking-tight ${item.highlight ? 'text-purple-700' : 'text-gray-600'}`}>{item.label}</span>
             </button>
           ))}
       </div>
@@ -288,6 +290,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onRecharge, onWithdraw }) =>
       {/* Game Modals */}
       <DailyBonusModal isOpen={showBonus} onClose={() => setShowBonus(false)} />
       <TeamModal isOpen={showTeam} onClose={() => setShowTeam(false)} />
+      <SpinWheelModal isOpen={showSpin} onClose={() => setShowSpin(false)} />
       
       {/* Investment Confirmation Modal */}
       <ProductModal 

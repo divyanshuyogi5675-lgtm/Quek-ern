@@ -156,12 +156,12 @@ interface SpinWheelModalProps {
     onClose: () => void;
 }
 
-// Updated Prize Pool for Strict Probability
+// Prizes: 10, 30, 50, 70, 100
 const PRIZES = [
-    { label: '₹0', value: 0, color: '#334155', text: '#94a3b8' }, // Dark Grey
     { label: '₹10', value: 10, color: '#4c1d95', text: '#e9d5ff' }, // Violet
     { label: '₹30', value: 30, color: '#0f172a', text: '#38bdf8' }, // Slate
     { label: '₹50', value: 50, color: '#be185d', text: '#fbcfe8' }, // Pink
+    { label: '₹70', value: 70, color: '#166534', text: '#bbf7d0' }, // Green
     { label: '₹100', value: 100, color: '#b45309', text: '#fcd34d' }, // Gold
 ];
 
@@ -182,9 +182,6 @@ export const SpinWheelModal: React.FC<SpinWheelModalProps> = ({ isOpen, onClose 
             const prizeAmount = await spinWheel();
             
             // Calculate Stop Position
-            // PRIZES: 0 (index 0), 10 (index 1), 30 (index 2), 50 (index 3), 100 (index 4)
-            // 5 segments = 72 degrees each.
-            
             const prizeIndex = PRIZES.findIndex(p => p.value === prizeAmount);
             
             // Random offset within the slice to look natural (+/- 30deg)
@@ -193,6 +190,7 @@ export const SpinWheelModal: React.FC<SpinWheelModalProps> = ({ isOpen, onClose 
             
             // Calculate total rotation
             // 1800 (5 spins) + Target Angle + Offset
+            // We need to invert index logic because wheel rotates clockwise
             const targetRotation = 1800 + (360 - (prizeIndex * segmentAngle)) + randomOffset;
             
             setRotation(targetRotation);
@@ -298,23 +296,22 @@ export const SpinWheelModal: React.FC<SpinWheelModalProps> = ({ isOpen, onClose 
                                 <div className="absolute inset-0 bg-purple-500/10 blur-3xl"></div>
                                 <div className="relative z-10">
                                     <h4 className="text-2xl font-black text-white mb-2 tracking-tight">
-                                        {winAmount > 0 ? 'CONGRATULATIONS!' : 'SO CLOSE!'}
+                                        CONGRATULATIONS!
                                     </h4>
                                     
-                                    {winAmount > 0 ? (
-                                        <div className="my-6">
-                                            <p className="text-purple-300 text-sm font-bold uppercase mb-1">You won Daily Income</p>
-                                            <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 drop-shadow-lg">
-                                                ₹{winAmount}
-                                            </p>
-                                            <p className="text-slate-400 text-xs mt-2">Paid daily for 11 Days!</p>
-                                        </div>
-                                    ) : (
-                                        <p className="text-slate-400 text-sm mb-6 my-6">Better luck next time.</p>
-                                    )}
+                                    <div className="my-6">
+                                        <p className="text-purple-300 text-sm font-bold uppercase mb-1">You won Daily Income</p>
+                                        <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 drop-shadow-lg">
+                                            ₹{winAmount}
+                                        </p>
+                                        <p className="text-slate-400 text-xs mt-2 font-medium">
+                                            Paid daily for <b>11 Days!</b><br/>
+                                            Go to Account & Claim now.
+                                        </p>
+                                    </div>
 
                                     <Button onClick={() => setWinAmount(null)} fullWidth variant="purple">
-                                        {winAmount > 0 ? 'Claim & Continue' : 'Try Again'}
+                                        Claim & Continue
                                     </Button>
                                 </div>
                             </div>

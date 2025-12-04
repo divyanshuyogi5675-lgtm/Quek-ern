@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Mail, Lock } from 'lucide-react';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
@@ -16,28 +16,62 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onViewChange }) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetId = useRef<string | null>(null);
 
-  // Safety: If user is logged in, loading should be true (waiting for redirect)
+  // Turnstile Rendering for Production
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+        if (window.turnstile && turnstileRef.current && !widgetId.current) {
+            try {
+                widgetId.current = window.turnstile.render(turnstileRef.current, {
+                    sitekey: '0x4AAAAAACExbvDVlqq5k643',
+                    callback: (token: string) => setCaptchaToken(token),
+                    'expired-callback': () => setCaptchaToken(null),
+                });
+                clearInterval(intervalId);
+            } catch (e) {
+                console.error("Turnstile render error", e);
+            }
+        }
+    }, 100);
+
+    return () => {
+        clearInterval(intervalId);
+        if (window.turnstile && widgetId.current) {
+            try {
+                window.turnstile.remove(widgetId.current);
+            } catch(e) {}
+            widgetId.current = null;
+        }
+    }
+  }, []);
+
   useEffect(() => {
     if (user) setIsLoading(true);
   }, [user]);
 
-  // Safety Timeout: If loading is true for too long without a user change (stuck state), reset it
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     if (isLoading && !user) {
         timer = setTimeout(() => {
             setIsLoading(false);
-            // Optional: setError("Login timed out. Please check connection.");
-        }, 8000); // 8 seconds safety valve
+        }, 8000);
     }
     return () => clearTimeout(timer);
   }, [isLoading, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
+
+    if (!captchaToken) {
+        setError("Please verify you are human.");
+        return;
+    }
+
+    setIsLoading(true);
     
     if (!email || !password) {
       setError('Please fill in all fields');
@@ -47,11 +81,16 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onViewChange }) => {
 
     try {
       await login(email, password);
-      // Success! We keep isLoading=true and wait for AuthContext to update 'user', 
-      // which triggers App.tsx to unmount this component.
     } catch (err: any) {
       setError(getFriendlyErrorMessage(err));
-      setIsLoading(false); // Stop loading immediately on error
+      setIsLoading(false);
+      // Reset CAPTCHA on failure
+      if (window.turnstile && widgetId.current) {
+          try {
+             window.turnstile.reset(widgetId.current);
+          } catch(e) {}
+          setCaptchaToken(null);
+      }
     }
   };
 
@@ -113,6 +152,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onViewChange }) => {
           </div>
         </div>
 
+        {/* Cloudflare Turnstile Widget */}
+        <div className="flex justify-center my-4 min-h-[65px]">
+             <div ref={turnstileRef}></div>
+        </div>
+
         {error && (
             <div className="p-4 bg-red-100 border border-red-200 rounded-xl flex items-start gap-3 text-sm text-red-700 animate-fade-in-up shadow-sm">
                 <div className="bg-red-200 rounded-full p-1 flex-shrink-0">
@@ -122,7 +166,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onViewChange }) => {
             </div>
         )}
 
-        <Button type="submit" fullWidth isLoading={isLoading}>
+        <Button type="submit" fullWidth isLoading={isLoading} disabled={!captchaToken}>
           Sign in with Email
         </Button>
       </form>
