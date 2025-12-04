@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [language, setLanguage] = useState<'en' | 'hi'>('en'); 
   const [upiId, setUpiId] = useState<string>("JKBMERC00722786@jkb"); 
-  const [websiteUrl, setWebsiteUrl] = useState<string>("https://flipkart-invest.com"); 
+  const [websiteUrl, setWebsiteUrl] = useState<string>("https://pesejito.netlify.app"); 
   
   const [supportSettings, setSupportSettings] = useState<SupportSettings>({
       whatsapp: "+919876543210",
@@ -63,7 +63,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (snapshot.val()) {
             setWebsiteUrl(snapshot.val().replace(/\/$/, "")); 
         } else {
-            setWebsiteUrl(window.location.origin);
+            // Fallback to current origin if DB is empty, or keep default
+            if (window.location.hostname.includes("netlify.app")) {
+               setWebsiteUrl("https://pesejito.netlify.app");
+            }
         }
     });
 
