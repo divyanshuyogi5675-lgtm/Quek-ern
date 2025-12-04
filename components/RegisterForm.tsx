@@ -16,7 +16,15 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onViewChange }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
+  
+  // Initialize Invite Code from URL Query Parameter (?ref=CODE)
+  const [inviteCode, setInviteCode] = useState(() => {
+    if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('ref') || '';
+    }
+    return '';
+  });
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
