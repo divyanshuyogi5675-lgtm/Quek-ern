@@ -10,7 +10,7 @@ interface AuthLayoutProps {
 export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle }) => {
   return (
     <div className="min-h-screen w-full flex bg-white overflow-hidden">
-      {/* Left Side - Green Branding Area (Still Green as per previous request, but Flipkart content) */}
+      {/* Left Side - Green Branding Area (Desktop Only) */}
       <div className="hidden lg:flex lg:w-1/2 bg-emerald-600 relative overflow-hidden items-center justify-center p-12">
         {/* Abstract Background Patterns */}
         <div className="absolute top-0 left-0 w-full h-full opacity-10">
@@ -47,17 +47,18 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
       </div>
 
       {/* Right Side - Form Area */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 lg:p-24 bg-white relative">
-        <div className="w-full max-w-md space-y-8 animate-fade-in-up">
+      <div className="w-full lg:w-1/2 flex flex-col justify-start sm:justify-center items-center p-6 sm:p-12 lg:p-24 bg-white relative overflow-y-auto">
+        <div className="w-full max-w-md space-y-6 sm:space-y-8 animate-fade-in-up mt-8 sm:mt-0">
           <div className="text-center lg:text-left">
-            <div className="lg:hidden mx-auto mb-6 flex justify-center">
+            {/* Mobile Logo with Top Spacing */}
+            <div className="lg:hidden mx-auto mb-6 flex justify-center mt-6 sm:mt-0">
                <img 
                   src="https://i.supaimg.com/561279ed-81a8-46f7-b250-30c7844aec75.png" 
                   alt="Flipkart Logo" 
-                  className="h-20 w-auto object-contain"
+                  className="h-16 w-auto object-contain"
                />
             </div>
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 font-serif">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 font-serif">
               {title}
             </h2>
             <p className="mt-2 text-sm text-gray-500">
@@ -70,7 +71,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
         </div>
         
         {/* Footer */}
-        <div className="absolute bottom-6 w-full text-center text-xs text-gray-400">
+        <div className="lg:absolute lg:bottom-6 mt-8 lg:mt-0 w-full text-center text-[10px] sm:text-xs text-gray-400 pb-4">
           &copy; {new Date().getFullYear()} Flipkart Inc. All rights reserved.
         </div>
       </div>
