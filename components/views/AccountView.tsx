@@ -70,9 +70,20 @@ export const AccountView: React.FC<AccountViewProps> = ({ onRecharge, onWithdraw
   };
 
   const getInviteLink = () => {
-     const base = websiteUrl || window.location.origin;
-     const cleanBase = base.replace(/\/$/, ""); 
-     return `${cleanBase}/register?ref=${user?.inviteCode || ''}`;
+     let base = websiteUrl || window.location.origin;
+     
+     // Robust Fix: Ensure we only use the origin (https://site.com) and strip any paths (like /register)
+     // This prevents 404 errors on static hosting platforms like Netlify
+     try {
+         const urlObj = new URL(base);
+         base = urlObj.origin; 
+     } catch (e) {
+         // Fallback clean if URL parsing fails
+         base = base.replace(/\/$/, "").replace(/\/register\/?$/, "");
+     }
+     
+     // Use query parameter routing which is safe for static hosting
+     return `${base}/?view=register&ref=${user?.inviteCode || ''}`;
   };
 
   const handleCopyCode = () => {
@@ -216,7 +227,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ onRecharge, onWithdraw
 
       {/* Version Info */}
       <div className="text-center mt-8 text-gray-400 text-xs">
-          <p>App Version 2.4.1</p>
+          <p>App Version 2.4.2</p>
           <p>Secure Connection</p>
       </div>
 

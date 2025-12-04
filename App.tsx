@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { AuthLayout } from './components/AuthLayout';
@@ -17,7 +18,8 @@ const App: React.FC = () => {
        const search = window.location.search;
        const params = new URLSearchParams(search);
        
-       if (path.startsWith('/register') || params.get('ref')) {
+       // Check for path OR query param (ref or view=register)
+       if (path.startsWith('/register') || params.get('ref') || params.get('view') === 'register') {
          return AuthView.REGISTER;
        }
     }
@@ -28,7 +30,9 @@ const App: React.FC = () => {
   useEffect(() => {
     const handlePopState = () => {
        const path = window.location.pathname;
-       if (path.startsWith('/register')) {
+       const params = new URLSearchParams(window.location.search);
+       
+       if (path.startsWith('/register') || params.get('ref') || params.get('view') === 'register') {
          setCurrentView(AuthView.REGISTER);
        } else {
          setCurrentView(AuthView.LOGIN);
@@ -69,10 +73,20 @@ const App: React.FC = () => {
   // Helper to update URL history without reload
   const handleViewChange = (view: AuthView) => {
     setCurrentView(view);
+    const url = new URL(window.location.href);
+
     if (view === AuthView.REGISTER) {
-      window.history.pushState({}, '', '/register');
+      // Use query param for safer static hosting routing
+      url.searchParams.set('view', 'register');
+      // Remove legacy path if present to fix refresh issues
+      if (url.pathname === '/register') url.pathname = '/';
+      window.history.pushState({}, '', url.toString());
     } else if (view === AuthView.LOGIN) {
-      window.history.pushState({}, '', '/');
+      url.searchParams.delete('view');
+      url.searchParams.delete('ref'); // Clear ref when going back to login
+      // Reset to root if we were on /register path
+      if (url.pathname === '/register') url.pathname = '/';
+      window.history.pushState({}, '', url.toString());
     }
   };
 

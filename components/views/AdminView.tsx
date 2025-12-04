@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Input } from '../ui/Input';
@@ -76,6 +75,8 @@ export const AdminView: React.FC = () => {
   };
 
   const handleAction = async (tx: Transaction, action: 'approve' | 'reject') => {
+      if (tx.type !== 'recharge' && tx.type !== 'withdraw') return;
+      
       try {
           if (action === 'approve') {
               approveTransaction(tx.id, tx.userId!, tx.type, tx.amount); 
